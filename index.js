@@ -1,84 +1,40 @@
-const container = document.querySelector('.container');
-const search = document.querySelector('.search-box button');
-const weatherBox = document.querySelector('.weather-box');
-const weatherDetails = document.querySelector('.weather-details');
-const error404 = document.querySelector('.not-found');
+require('dotenv').config();
 
-search.addEventListener('click', () => {
+const express = require('express');
+const path = require('path');
 
-    const APIKey = 'cec3ae0da38a6f72d7890f3aacffec70';
-    const city = document.querySelector('.search-box input').value;
-    
-    if (city === '')
-        return;
+const app = express();
+const PORT = process.env.PORT || 3000;
+const APIKey = process.env.OPENWEATHER_API_KEY;
 
-    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${APIKey}`)
-        .then(response => response.json())
-        .then(json => {
+app.use(express.static(__dirname));
 
-            if (json.cod === '404') {
-                container.style.height = '400px';
-                weatherBox.style.display = 'none';
-                weatherDetails.style.display = 'none';
-                error404.style.display = 'block';
-                error404.classList.add('fadeIn');
-                return;
-            }
+app.get('/weather', async (req, res) => {
+    const city = req.query.city;
 
-            error404.style.display = 'none';
-            error404.classList.remove('fadeIn');
+    if (!city) {
+        return res.status(400).json({ cod: '400', message: 'city is required' });
+    }
 
-            const image = document.querySelector('.weather-box img');
-            const temperature = document.querySelector('.weather-box .temperature');
-            const description = document.querySelector('.weather-box .description');
-            const humidity = document.querySelector('.weather-details .humidity span');
-            const wind = document.querySelector('.weather-details .wind span');
+    if (!APIKey) {
+        return res.status(500).json({ cod: '500', message: 'missing OpenWeather API key' });
+    }
 
-            switch (json.weather[0].main){
-                case 'Clear':
-                    image.src = 'images/clear.png';
-                    break;
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${APIKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
 
-                case 'Rain':
-                    image.src = 'images/rain.png';
-                    break;
+        res.status(response.status).json(data);
+    } catch (error) {
+        res.status(500).json({ cod: '500', message: 'failed to fetch weather data' });
+    }
+});
 
-                case 'Snow':
-                    image.src = 'images/snow.png';
-                    break;
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-                case 'Clouds':
-                    image.src = 'images/cloud.png';
-                    break;
-
-                case 'Haze':
-                case 'Mist':
-                case 'Fog':
-                case 'Smoke':
-                    image.src = 'images/mist.png';
-                    break;
-
-                default:
-                    image.src = 'images/cloud.png';
-            }
-
-            temperature.innerHTML = `${parseInt(json.main.temp)}<span>°C</span>`;
-            description.innerHTML = `${json.weather[0].description}`;
-            humidity.innerHTML = `${json.main.humidity}%`;
-            wind.innerHTML = `${parseInt(json.wind.speed)}Km/h`;
-
-            weatherBox.style.display = '';
-            weatherDetails.style.display = '';
-            weatherBox.classList.add('fadeIn');
-            weatherDetails.classList.add('fadeIn');
-            container.style.height = '590px';
-        })
-        .catch(() => {
-            container.style.height = "400px";
-            weatherBox.style.display = "none";
-            weatherDetails.style.display = "none";
-            error404.style.display = "block";
-            error404.classList.add("fadeIn");
-        });
-
+app.listen(PORT, () => {
+    console.log(`Weather app server running at http://localhost:${PORT}`);
 });
